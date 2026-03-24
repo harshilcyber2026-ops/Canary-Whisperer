@@ -21,12 +21,6 @@
   <a class="nav-brand" href="#">
     <span class="bracket">[</span><span class="brand-flag">FLAG</span>VAULT<span class="bracket">]</span>
   </a>
-  <ul class="nav-links">
-    <li><a href="#">Home</a></li>
-    <li><a href="#" class="active">Challenges</a></li>
-    <li><a href="#">Scoreboard</a></li>
-    <li><a href="#">Rules</a></li>
-  </ul>
   <div class="nav-status">
     <div class="status-dot"></div>
     <span>LIVE</span>
@@ -43,16 +37,6 @@
       <span class="hl">Canary</span> <span class="hl2">Whisperer</span>
     </h1>
     <p class="page-desc">Category: Binary Exploitation &nbsp;|&nbsp; Points: 350 &nbsp;|&nbsp; Difficulty: Medium</p>
-  </div>
-
-  <!-- STATS STRIP -->
-  <div class="stats-strip">
-    <div class="stat-box"><span class="stat-val">350</span><span class="stat-label">Points</span></div>
-    <div class="stat-box"><span class="stat-val red">27</span><span class="stat-label">Solves</span></div>
-    <div class="stat-box"><span class="stat-val amber">3</span><span class="stat-label">Hints</span></div>
-    <div class="stat-box"><span class="stat-val green">FMT</span><span class="stat-label">Leak Method</span></div>
-    <div class="stat-box"><span class="stat-val ornge">x64</span><span class="stat-label">Arch</span></div>
-    <div class="stat-box"><span class="stat-val blue">9008</span><span class="stat-label">Port</span></div>
   </div>
 
   <!-- TWO-COLUMN LAYOUT -->
@@ -268,41 +252,7 @@ r.interactive()
 </pre>
       </div>
 
-      <!-- HINTS -->
-      <div class="sec-divider"><h3>Hints</h3></div>
-      <div class="hints-container">
-        <div class="hint-item" id="h1">
-          <button class="hint-toggle" onclick="revealHint('h1')">
-            <span class="hint-num">HINT 01</span>
-            Canaries always end in 0x00.
-            <span class="hint-cost">−0 pts</span>
-          </button>
-          <div class="hint-content">
-            A Linux x64 stack canary's least-significant byte is always <code>0x00</code>. This null-byte guard prevents string functions from leaking it accidentally. When you see a pointer-shaped value ending in <code>…00</code>, that is your canary.
-          </div>
-        </div>
-        <div class="hint-item" id="h2">
-          <button class="hint-toggle" onclick="revealHint('h2')">
-            <span class="hint-num">HINT 02</span>
-            Which %p offset is the canary on?
-            <span class="hint-cost">−20 pts</span>
-          </button>
-          <div class="hint-content">
-            In GDB, send <code>%1$p.%2$p...%15$p</code> and look for a value ending in <code>00</code>. For this binary the canary is at <strong>offset 11</strong>: use <code>%11$p</code> to leak it in one shot.
-          </div>
-        </div>
-        <div class="hint-item" id="h3">
-          <button class="hint-toggle" onclick="revealHint('h3')">
-            <span class="hint-num">HINT 03</span>
-            Exact byte layout for the second overflow.
-            <span class="hint-cost">−40 pts</span>
-          </button>
-          <div class="hint-content">
-            <code>buf2</code> is 64 bytes. Stack order: <code>[buf2 — 64B] [canary — 8B] [saved RBP — 8B] [saved RIP — 8B]</code>. Total bytes to reach RIP = 80. Place the leaked canary at offset 64, anything at 72, and <code>win()</code>'s fixed address at offset 80.
-          </div>
-        </div>
-      </div>
-
+  
       <!-- FLAG FORMAT -->
       <div class="flag-format">
         <span class="flag-icon">🚩</span>
@@ -372,31 +322,6 @@ r.interactive()
 
     </div><!-- /right -->
   </div><!-- /main-layout -->
-
-  <!-- SUBMIT FLAG -->
-  <div class="submit-section">
-    <div class="submit-title">Submit Your Flag</div>
-    <p class="submit-sub">Bypassed the canary and reached win()? Enter your flag below.</p>
-    <div class="form-row">
-      <div class="form-group">
-        <label>Team / Username</label>
-        <input id="inp-user" class="form-control" placeholder="c4n4ry_wh1sp3r3r"/>
-      </div>
-      <div class="form-group">
-        <label>Challenge</label>
-        <select class="form-control">
-          <option>Canary Whisperer — Binary Exploitation</option>
-        </select>
-      </div>
-    </div>
-    <div class="form-group flag-input-wrap">
-      <span class="prefix">FlagVault{</span>
-      <input id="flag-input" class="form-control" placeholder="your_flag_here}" style="padding-left:7.8rem;"/>
-    </div>
-    <button class="btn btn-primary" onclick="submitFlag()">⚑ &nbsp;SUBMIT FLAG</button>
-    <div class="submit-result" id="flag-result"></div>
-  </div>
-
 </div><!-- /page-wrap -->
 
 <footer class="footer">
